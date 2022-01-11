@@ -2,12 +2,13 @@
  * @Author: Lr-2002 
  * @Date: 2022-01-06 20:24:11 
  * @Last Modified by: Lr-2002
- * @Last Modified time: 2022-01-09 22:56:12
+ * @Last Modified time: 2022-01-10 20:28:57
  */
 #include <vector>
 #include <memory>
 #include <iostream>
 #include <array>
+#include <type_traits>
 
 
 template <typename Ty, std::size_t L>
@@ -183,7 +184,10 @@ private:
     // std::allocator<Ty> _alloc;
     pointer _begin = NULL;
     pointer _end   = NULL;
-    value_type _element[L];
+    typename  std::aligned_storage<sizeof(Ty), alignof(Ty)>::type _element[L];
+
+    // element _element[L];
+    //  _element[L];
     size_type _size = L;
     size_type _capacity = L;
     // Ty * element;
