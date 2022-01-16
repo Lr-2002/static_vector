@@ -14,7 +14,6 @@ void fun() {}
 void tt()
 {
     std::unique_ptr<int> p(new int);
-    // int *p = new int;
 }
 
 

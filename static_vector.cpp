@@ -9,6 +9,7 @@
 #include <iostream>
 #include <array>
 #include <type_traits>
+// #include <glog/logging.h>
 
 
 template <typename Ty, std::size_t L>
@@ -51,7 +52,7 @@ public: // iterator
     constexpr reference at(size_type n)
     {
         
-        if(n < 0 || n > size())
+        if(n < 0 || n >= size())
         {
             throw std::out_of_range("function [at] call invalid size");
         }
@@ -100,11 +101,11 @@ public: // iterator
         return _begin;
     }
 
-    constexpr pointer end()
+    constexpr pointer end() const
     {
         return _end;
     }
-    constexpr pointer begin()
+    constexpr pointer begin() const
     {
         return _begin;
     }
@@ -138,29 +139,37 @@ public: // iterator
     void copy(const static_vector<Ty, L> &other) 
     {
         pointer iter = begin();
-        const_iterator const_iter = other.begin();
+        pointer const_iter = other.begin();
+        // std::cout<<*const_iter<<std::endl;
         while(const_iter != other.end())
         {
             *iter = *const_iter;
+            iter++;
+            const_iter++;
+            // std::cout<<*iter<<std::endl;
         }
     }
 
-    void init()
-    {
-        init(_capacity);
-    }
 
     void init(std::size_t n)
     {
+        // call in necesary 
+        // create n object
         if( n > _capacity )
         {
-            std::cout<< "Undefined Behavor of calling bigger space than L" <<std::endl;
+            std::cout <<"Make sure your size is less than the capacity" <<std::endl;
             return; 
         }
-        // Ty _element[n];
+
         _size = n;
-        _begin = _element;
         _end = _begin + n;
+        pointer iter = begin();
+        while ( iter != _end )
+        {
+            new(iter) Ty();
+            iter++;
+        }
+        
     }
 
     void init(std::size_t n, const_reference var)
@@ -170,22 +179,27 @@ public: // iterator
             std::cout<< "Undefined Behavor of calling bigger space than capacity" <<std::endl;
             return; 
         }
-        init(n);
-        pointer _initial_iter = _begin;
+        _size = n;
+        _end = _begin + n; 
+
+        pointer _initial_iter = begin();
         while (_initial_iter < _end)
         {
-            /* code */
+            std::cout << "Initializing element"<< var << std::endl;
             *_initial_iter = var;
+            _initial_iter++;
         }
-        
     }
 
 private: 
     // std::allocator<Ty> _alloc;
-    pointer _begin = NULL;
-    pointer _end   = NULL;
-    typename  std::aligned_storage<sizeof(Ty), alignof(Ty)>::type _element[L];
 
+
+    pointer _end   = NULL;
+
+    // register some memory 
+    typename  std::aligned_storage<sizeof(Ty), alignof(Ty)>::type _element[L];
+    pointer _begin = reinterpret_cast<Ty *>(&_element[0]);
     // element _element[L];
     //  _element[L];
     size_type _size = L;
@@ -196,16 +210,20 @@ private:
 
 template<typename Ty, std::size_t L>
 constexpr static_vector<Ty, L>::static_vector() noexcept{
-    init();
-    std::cout<<"using [ default ] constructor and the default value of begin is "<<*_begin << std::endl;
+    // todo no make object
+    init(L);
+    std::cout<<"using [ default ] constructor and the default value of begin is "<<std::endl;
 }
 
 template<typename Ty, std::size_t L>
 constexpr static_vector<Ty, L>::static_vector(const static_vector<Ty, L>& other) 
 {
     // todo copy the value of this function
-    
-    init();
+    if(other.size() > L) 
+    {
+        throw std::length_error("[copy] error in your length");
+    }
+    init(other.size());
     copy(other);
     std::cout<<"using [ copy ] constructor "<<std::endl;
 }
@@ -213,29 +231,21 @@ constexpr static_vector<Ty, L>::static_vector(const static_vector<Ty, L>& other)
 template<typename Ty, std::size_t L>
 constexpr static_vector<Ty, L>::static_vector(static_vector<Ty, L>&& other) noexcept
 {
-    // construct this one and move other to NULL
-    // todo need to alloc again?
-    init();
-    _begin = other._begin;
-    _end = other._end;
-    other._begin = NULL;
-    other._end = NULL;
+    // todo need to alloc again?'
+    
+    init(other.size());
+    std::move(other.begin(), other.end(), begin());
+    // TODO move just change the l-value to r-value ,why the third parameter
+    // _element = other._element;
+
     std::cout<<"using [ move ] constructor "<<std::endl;
 }
 
-// template<typename Ty, std::size_t L>
-// static_vector<Ty, L>::~static_vector()
-// {
-//     // std::cout<<"calling deallocate"<< std::endl;
-// }
-
 template<typename Ty, std::size_t L>
 constexpr static_vector<Ty, L>::static_vector(std::initializer_list<value_type> list)
-{
-    // todo copy value
-    // _begin = list.begin();
-    // _end = list.end();
+{   
     init(list.size());
+    std::copy(list.begin(), list.end(), begin());
     std::cout<<"using [ initializer_list ] constructor "<<std::endl;
 }
 
@@ -260,8 +270,8 @@ template<std::size_t length>
 constexpr static_vector<Ty, L>::static_vector(const value_type(&)[length])
 {
     static_assert(length <= L , "Undefined behavior");
-
     init(length);
+    std::cout<<"the size of the reference costructor is " << length << std::endl;
     std::cout<<"using [ reference ] constructor " <<std::endl;
     
 }
@@ -288,6 +298,7 @@ constexpr static_vector<Ty, L>::static_vector(Iter beg, Iter end)
     }
 
     init(size);
+    std::copy(beg, end, _begin);
     std::cout << "using [ Iter ] constructor "<<std::endl;
 }
 
@@ -295,73 +306,95 @@ template<typename Ty, std::size_t L>
 constexpr static_vector<Ty, L>& static_vector<Ty, L>::operator=(const static_vector<Ty, L>& other)
 {
     // must copy
-    init();
-    std::cout<<"using [ operator = ] constructor 2 "<<std::endl;
+    init(other.size());
+    copy(other);
+    std::cout<<"using [ operator = ] constructor 2 with l-value "<<std::endl;
     return *this;
 }
 
 template<typename Ty, std::size_t L> 
 constexpr static_vector<Ty, L>& static_vector<Ty, L>::operator=(static_vector<Ty, L>&& other) noexcept
 {
-    init();
-    std::cout<<"using [ operator = ] constructor 1 ";
-
+    init(other.size());
+    std::move(other.begin(), other.end(), _begin);
+    std::cout<<"using [ operator = ] constructor with r-value ";
     return *this;
 }
-
-
-static_vector<int, 5> get_vector()
-{
-
-    static_vector<int, 5> ee(5, 4);
-    int * iter = ee.begin();
-    while(iter != ee.end())
-    {
-        std::cout << *iter <<std::endl;
-        iter++;
-    }
-    return ee;    
-}
-
 
 class vec
 {
 public:
-    vec() 
-    {
-        std::cout<<"using constructor"<<std::endl;
-    }
-    
+    int a = 2;
+    vec(int a) : a(a) {}
+    vec() {}
+    ~vec() {}
 };
 
+static_vector<int, 5> get_vector()
+{
+    static_vector<int, 5> e(5);
+    e.init(5, 2);
+    return e;
+}
+
+
 int main() {
-
-    static_vector<int, 5> a(4);
-    std::cout<<std::endl;
-    static_vector<int, 5> b(get_vector());
-    std::cout<<std::endl;
-
-    int* iter = a.data();
-
-    int i = 0;
-    while(iter != a.end())
+    static_vector<int, 5> a(5);
+    a.init(5, 3);
+    static_vector<int, 5> c(get_vector());
+    int * iter = c.begin();
+    while (iter != c.end())
     {
-        std::cout<<"iter: "<<*iter<<" " << b[i++] << std::endl;  
-        iter ++;
+        std::cout << *iter << std::endl;
+        iter ++ ;
     }
-    int *beg = a.begin();
-    *beg = 0;
+    
+    
+    // std::cout<< a.at(1) << std::endl;
 
-    iter = a.data();
-    std::cout<<"--------------------------------------"<<std::endl;
-    i = 0;
-    while(iter != a.end())
+    static_vector<vec, 5> b(5);
+    static_vector<vec, 5> d(b);
+    // seem [copy] is also ok
+    std::cout << d[4].a << std::endl;
+
+
+    static_vector<int, 5> e(std::initializer_list<int> {1,2,3,4,5});
+    for(auto it = e.begin(); it != e.end();it++)
     {
-        std::cout<<"iter: "<<*iter<<" " << b[i++] << std::endl;  
-        iter ++;
+        std::cout << *it << std::endl;
     }
 
-    std::cout<< a.size() << "   " << a.capacity() << std::endl;
+    int arr[4] = {1,2,3,4};
+    static_vector<int, 5> f(arr);
+
+    static_vector<int, 5> g(a.begin(), a.end());
+    for(auto it = g.begin(); it != g.end();it++)
+    {
+        std::cout << *it << std::endl; 
+    }
+    // static_vector<int, 5> g([1,2,3]);z
+    static_vector<int, 5> h = g;
+    std::cout << h[0] << std::endl;
+
+
+
+    static_vector<vec, 3> vec_a;
+    static_vector<vec, 3> vec_b = vec_a;
+    std::cout<<vec_a[2].a << std::endl;
 
     return 0;   
 }
+
+/* todo
+ * 
+ * when init 
+ * you should not 
+ * give the object 
+ * and then
+ * you should new the object 
+ * when you push back
+ * 
+ * 
+ * 
+ * 
+ */

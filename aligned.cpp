@@ -27,11 +27,20 @@ public:
     T call()
     {
         // change storage to pointer and then de-pointer to get the object
+        // the type connvert is necessary
         return *reinterpret_cast<T*>(&storage[0]);
     }
     void construct(int a, char b)
     {
         reinterpret_cast<T*>(&storage[0])->con(a, b); 
+    }
+    void list_con(int val)
+    {
+        for (int i = 0 ; i < N; i++)
+        {
+            // *reinterpret_cast<T*>(&storage[i]) = val;
+            new(&storage[i]) T(val);
+        }
     }
     ~Value() {}
 
@@ -41,8 +50,10 @@ private:
 
 int main()
 {
-    Value<A,3> value;
-    value.construct(3, 'd');
-    cout<< value.call().b << endl;
+    Value<int,3> value; 
+    value.list_con(100);
+
+    // value.construct(3, 'd');
+    cout<< value.call() << endl;
     return 0;
 }
