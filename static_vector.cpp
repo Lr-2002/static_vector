@@ -44,10 +44,51 @@ public:
     ~static_vector() {}
     constexpr static_vector& operator=(const static_vector& other); 
     constexpr static_vector& operator=(static_vector&& other) noexcept; 
-    // constexpr static_vector& operator=(
-    //     std::initializer_list<value_type>
-    // );
+     constexpr static_vector& operator=(
+         std::initializer_list<value_type>
+     );
+
+
+    constexpr void push_back(const_reference value)
+    {
+        if(size() >= _capacity)
+        {
+            throw std::length_error("length overflow");
+        }
+        new(_end++) Ty(value);
+        return;
+    }
+
+    constexpr void push_back(value_type&& value)
+    {
+        if(size() >= _capacity)
+        {
+            throw std::length_error("length overflow");
+        }
+        new(_end++) Ty(value);
+        return;
+    }
+
+    constexpr void pop_back() noexcept
+    {
+        // TODO no destroy
+        _end --;
+    }
+
+
     
+
+    template<class... Args>
+    constexpr reference emplace_back(Args&&... args)
+    {
+        if(size() >=_capacity)
+        {
+            throw std::length_error("can not to emplace_back ");
+        }
+        
+        return  *(new(_end++) Ty(std::forward<Args>(args)...)); 
+    }
+
 public: // iterator
     constexpr reference at(size_type n)
     {
@@ -110,11 +151,10 @@ public: // iterator
         return _begin;
     }
 
-
     constexpr size_type size() const noexcept
     {
         // size will add when append 
-        return _size;
+        return end() - begin();
     }
     constexpr bool full() const noexcept
     {
@@ -123,6 +163,7 @@ public: // iterator
             return true;
         }
         return false;
+        copy
     }
     constexpr bool empty() const noexcept
     {
@@ -140,14 +181,14 @@ public: // iterator
     {
         pointer iter = begin();
         pointer const_iter = other.begin();
-        // std::cout<<*const_iter<<std::endl;
         while(const_iter != other.end())
         {
             *iter = *const_iter;
             iter++;
             const_iter++;
-            // std::cout<<*iter<<std::endl;
         }
+        iter = nullptr;
+        const_iter = nullptr;
     }
 
 
@@ -169,7 +210,7 @@ public: // iterator
             new(iter) Ty();
             iter++;
         }
-        
+        iter = nullptr;
     }
 
     void init(std::size_t n, const_reference var)
@@ -186,32 +227,37 @@ public: // iterator
         while (_initial_iter < _end)
         {
             std::cout << "Initializing element"<< var << std::endl;
-            *_initial_iter = var;
+            new(_initial_iter) Ty(var);
             _initial_iter++;
         }
+        _initial_iter = nullptr;
     }
 
+
+    void show()
+    {
+        std::cout << size() << std::endl;     
+        std::cout << capacity() << std::endl;
+        std::cout << empty() << std::endl;
+        std::cout << full() << std::endl;
+    }
 private: 
     // std::allocator<Ty> _alloc;
 
 
-    pointer _end   = NULL;
 
-    // register some memory 
     typename  std::aligned_storage<sizeof(Ty), alignof(Ty)>::type _element[L];
     pointer _begin = reinterpret_cast<Ty *>(&_element[0]);
-    // element _element[L];
-    //  _element[L];
-    size_type _size = L;
+    pointer _end   = _begin;
+    size_type _size = 0;
     size_type _capacity = L;
-    // Ty * element;
 
 };
 
 template<typename Ty, std::size_t L>
 constexpr static_vector<Ty, L>::static_vector() noexcept{
     // todo no make object
-    init(L);
+    // init(L);
     std::cout<<"using [ default ] constructor and the default value of begin is "<<std::endl;
 }
 
@@ -224,7 +270,7 @@ constexpr static_vector<Ty, L>::static_vector(const static_vector<Ty, L>& other)
         throw std::length_error("[copy] error in your length");
     }
     init(other.size());
-    copy(other);
+    std::copy(other.begin(), other.end(), _begin);
     std::cout<<"using [ copy ] constructor "<<std::endl;
 }
 
@@ -296,7 +342,6 @@ constexpr static_vector<Ty, L>::static_vector(Iter beg, Iter end)
         std::cout<<" Undefined Behavor"<<std::endl;
         return;
     }
-
     init(size);
     std::copy(beg, end, _begin);
     std::cout << "using [ Iter ] constructor "<<std::endl;
@@ -317,17 +362,34 @@ constexpr static_vector<Ty, L>& static_vector<Ty, L>::operator=(static_vector<Ty
 {
     init(other.size());
     std::move(other.begin(), other.end(), _begin);
-    std::cout<<"using [ operator = ] constructor with r-value ";
+    std::cout<<"using [ operator = ] constructor with r-value " << std::endl;
     return *this;
 }
+
+template<typename Ty, std::size_t L >
+constexpr static_vector<Ty, L>& static_vector<Ty, L>::operator=(std::initializer_list<Ty> list)
+{
+    init(list.size());
+    std::copy(list.begin(), list.end(), _begin);
+    std::cout<<"using [ operator = ] constructor with list initializer-list" << std::endl;
+    return *this;
+}
+
 
 class vec
 {
 public:
     int a = 2;
-    vec(int a) : a(a) {}
+    char b = ' ';
+    vec(int a, char b) : a(a), b(b) {}
     vec() {}
     ~vec() {}
+    void show()
+    {
+        std::cout <<"This is the vector" << std::endl;
+        std::cout << a<< std::endl;
+        std::cout << b<< std::endl;
+    }
 };
 
 static_vector<int, 5> get_vector()
@@ -339,49 +401,60 @@ static_vector<int, 5> get_vector()
 
 
 int main() {
-    static_vector<int, 5> a(5);
-    a.init(5, 3);
-    static_vector<int, 5> c(get_vector());
-    int * iter = c.begin();
-    while (iter != c.end())
-    {
-        std::cout << *iter << std::endl;
-        iter ++ ;
-    }
+    // static_vector<int, 5> a(5);
+    // a.init(5, 3);
+    // static_vector<int, 5> c(get_vector());
+    // int * iter = c.begin();
+    // while (iter != c.end())
+    // {
+    //     std::cout << *iter << std::endl;
+    //     iter ++ ;
+    // }
     
     
-    // std::cout<< a.at(1) << std::endl;
+    // // std::cout<< a.at(1) << std::endl;
 
-    static_vector<vec, 5> b(5);
-    static_vector<vec, 5> d(b);
-    // seem [copy] is also ok
-    std::cout << d[4].a << std::endl;
-
-
-    static_vector<int, 5> e(std::initializer_list<int> {1,2,3,4,5});
-    for(auto it = e.begin(); it != e.end();it++)
-    {
-        std::cout << *it << std::endl;
-    }
-
-    int arr[4] = {1,2,3,4};
-    static_vector<int, 5> f(arr);
-
-    static_vector<int, 5> g(a.begin(), a.end());
-    for(auto it = g.begin(); it != g.end();it++)
-    {
-        std::cout << *it << std::endl; 
-    }
-    // static_vector<int, 5> g([1,2,3]);z
-    static_vector<int, 5> h = g;
-    std::cout << h[0] << std::endl;
+    // static_vector<vec, 5> b(5);
+    // static_vector<vec, 5> d(b);
+    // // seem [copy] is also ok
+    // std::cout << d[4].a << std::endl;
 
 
+    // static_vector<int, 5> e(std::initializer_list<int> {1,2,3,4,5});
+    // static_vector<int, 5> ee = std::initializer_list<int> {1,2,3,4,5};
+    // for(auto it = ee.begin(); it != ee.end();it++)
+    // {
+    //     std::cout << *it << std::endl;
+    // }
 
-    static_vector<vec, 3> vec_a;
-    static_vector<vec, 3> vec_b = vec_a;
-    std::cout<<vec_a[2].a << std::endl;
+    // int arr[4] = {1,2,3,4};
+    // static_vector<int, 5> f(arr);
 
+    // static_vector<int, 5> g(a.begin(), a.end());
+    // for(auto it = g.begin(); it != g.end();it++)
+    // {
+    //     std::cout << *it << std::endl;
+    // }
+    // // static_vector<int, 5> g([1,2,3]);z
+    // static_vector<int, 5> h = g;
+    // std::cout << h[0] << std::endl;
+
+
+
+    // static_vector<vec, 3> vec_a;
+    // static_vector<vec, 3> vec_b = vec_a;
+    // std::cout<<vec_a[2].a << std::endl;
+    // iter = nullptr;
+    static_vector<vec, 3> a;
+    a.show();
+
+    a.emplace_back(3,'a');
+    a.push_back(a[0]);
+    a.push_back(std::move(a[1]));
+    a.pop_back();
+    a.show();
+
+    a[1].show();
     return 0;   
 }
 
@@ -393,8 +466,5 @@ int main() {
  * and then
  * you should new the object 
  * when you push back
- * 
- * 
- * 
- * 
+ *
  */
