@@ -1,5 +1,5 @@
 #include<iostream>
-
+#include<type_traits>
 using namespace std;
 
 void push_back(const int &num)
@@ -13,6 +13,28 @@ void change(int && value_type)
     value_type = 3;
 }
 
+class A
+{
+    int i =3 ;
+    public:
+    A(){}
+    A(int a): i(a) {
+        cout<<"calling the constructor"<<endl;
+    }
+    ~A() {
+        cout<<"using delete function" <<endl;
+    }
+};
+struct B
+{
+    B() {}
+};
+struct C
+{
+    int m;
+};
+
+
 int main() {
     int a = 5;
     int & ref_a  = a;
@@ -22,5 +44,12 @@ int main() {
     cout << ref_d << endl;
     change(std::forward<int>(a));
     // change(a);
+
+    A dd(5);
+    dd.~A();
+
+
+    cout << is_trivial<int>::value << endl;
+    cout << is_trivial<char>::value << endl;
 
 }

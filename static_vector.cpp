@@ -9,7 +9,16 @@
 #include <iostream>
 #include <array>
 #include <type_traits>
+#include <cstring>
 // #include <glog/logging.h>
+
+#if __cplusplus >= 201103L
+#define CONSTEXPR constexpr
+#else 
+#define CONSTEXPR 
+#endif
+// using marco to adapt different c++ compiler
+
 
 
 template <typename Ty, std::size_t L>
@@ -29,59 +38,53 @@ public:
     using reverse_iterator       = pointer;
     using const_reverse_iterator = const_pointer;
 
-    constexpr static_vector() noexcept;                             // (1)
-    constexpr static_vector(const static_vector& other);            // (2)
-    constexpr static_vector(static_vector&&) noexcept;              // (3)
-    constexpr static_vector(std::initializer_list<value_type> list);// (4)
-    constexpr explicit static_vector(std::size_t n);                // (5)   initialized with L
-    constexpr static_vector(std::size_t, const_reference v);        // (6)
+    CONSTEXPR static_vector() noexcept;                             // (1)
+    CONSTEXPR static_vector(const static_vector& other);            // (2)
+    CONSTEXPR static_vector(static_vector&&) noexcept;              // (3)
+    CONSTEXPR static_vector(std::initializer_list<value_type> list);// (4)
+    CONSTEXPR explicit static_vector(std::size_t n);                // (5)   initialized with L
+    CONSTEXPR static_vector(std::size_t, const_reference v);        // (6)
     template<std::size_t length>
-    constexpr static_vector(const value_type(&)[length]);                // (7) 
+    CONSTEXPR static_vector(const value_type(&)[length]);                // (7) 
     template<std::size_t length>
-    constexpr static_vector(const value_type(*)[length]);                // (7) 
+    CONSTEXPR static_vector(const value_type(*)[length]);                // (7) 
     template<typename Iter>
-    constexpr static_vector(Iter beg, Iter end);                    // (8)
+    CONSTEXPR static_vector(Iter beg, Iter end);                    // (8)
     ~static_vector() {}
-    constexpr static_vector& operator=(const static_vector& other); 
-    constexpr static_vector& operator=(static_vector&& other) noexcept; 
-     constexpr static_vector& operator=(
+    CONSTEXPR static_vector& operator=(const static_vector& other); 
+    CONSTEXPR static_vector& operator=(static_vector&& other) noexcept; 
+    CONSTEXPR static_vector& operator=(
          std::initializer_list<value_type>
      );
 
 
-    constexpr void push_back(const_reference value)
+    CONSTEXPR void push_back(const_reference value)
     {
-        if(size() >= _capacity)
-        {
-            throw std::length_error("length overflow");
-        }
-        new(_end++) Ty(value);
+        emplace_back(value);
         return;
     }
 
-    constexpr void push_back(value_type&& value)
+    CONSTEXPR void push_back(value_type&& value)
     {
-        if(size() >= _capacity)
+        // any word is l-value
+        if(size() >= L)
         {
             throw std::length_error("length overflow");
         }
-        new(_end++) Ty(value);
+        new(_end++) Ty(std::move(value));
         return;
     }
 
-    constexpr void pop_back() noexcept
+    CONSTEXPR void pop_back() noexcept
     {
-        // TODO no destroy
+        _end->~Ty(); // call the de-constructor
         _end --;
     }
 
-
-    
-
     template<class... Args>
-    constexpr reference emplace_back(Args&&... args)
+    CONSTEXPR reference emplace_back(Args&&... args)
     {
-        if(size() >=_capacity)
+        if(size() >=L)
         {
             throw std::length_error("can not to emplace_back ");
         }
@@ -90,35 +93,29 @@ public:
     }
 
 public: // iterator
-    constexpr reference at(size_type n)
+    CONSTEXPR reference at(size_type n)
     {
         
-        if(n < 0 || n >= size())
+        if(n >= size())
         {
             throw std::out_of_range("function [at] call invalid size");
         }
 
-
-        // pointer tmp = _begin; 
-        // std::cout<<"at" << std::endl;
         return *(_begin + n);
     }
 
-    // constexpr const_reference at(size_type n) const
+    // CONSTEXPR const_reference at(size_type n) const
     // { // todo no idea
     //     const_reference tmp = _begin;
     //     std::cout<<"const at" << std::endl;
     //     return *(tmp+n);
     // }
-    constexpr reference operator[](size_type n) 
+    CONSTEXPR reference operator[](size_type n) 
     {
-        return at(n);
+        return *(_begin + n);
     }
 
-    // constexpr const_reference operator[](size_type n) const
-    // todo no idea
-
-    constexpr reference front()
+    CONSTEXPR reference front()
     {
         if (size() == 0)
         {
@@ -128,7 +125,7 @@ public: // iterator
         return *_begin;
     }
 
-    constexpr reference back()
+    CONSTEXPR reference back()
     {
         if(size() == 0)
         {
@@ -137,58 +134,68 @@ public: // iterator
         }
         return *_end; 
     }
-    constexpr pointer data() 
+    CONSTEXPR pointer data() 
     {
         return _begin;
     }
 
-    constexpr pointer end() const
+    CONSTEXPR pointer end() const
     {
         return _end;
     }
-    constexpr pointer begin() const
+    CONSTEXPR pointer begin() const
     {
         return _begin;
     }
 
-    constexpr size_type size() const noexcept
+    CONSTEXPR size_type size() const noexcept
     {
         // size will add when append 
-        return end() - begin();
+        return (size_t)(end() - begin());
     }
-    constexpr bool full() const noexcept
+    CONSTEXPR bool full() const noexcept
     {
         if(size() == L)
         {
             return true;
         }
         return false;
-        copy
     }
-    constexpr bool empty() const noexcept
+    CONSTEXPR bool empty() const noexcept
     {
         if(size() == 0)
         return true;
         return false;
     }
 
-    constexpr size_type capacity() const noexcept
+    CONSTEXPR size_type capacity() const noexcept
     {
-        return _capacity;
+        return L;
     }
     
     void copy(const static_vector<Ty, L> &other) 
     {
-        pointer iter = begin();
-        pointer const_iter = other.begin();
-        while(const_iter != other.end())
-        {
-            *iter = *const_iter;
-            iter++;
-            const_iter++;
+        if (std::is_trivial<Ty>::value)
+        {   
+            std::cout<< "trivial_copy " << std::endl;
+            std::memcpy(_begin, other.begin(), other.size());
         }
-        iter = nullptr;
-        const_iter = nullptr;
+        else{
+            pointer iter = begin();
+            pointer const_iter = other.begin();
+            while(const_iter != other.end())
+            {
+                *iter = *const_iter;
+                iter++;
+                const_iter++;
+            }
+            iter = nullptr;
+            const_iter = nullptr;
+        }
+
+
+
+
     }
 
 
@@ -196,13 +203,13 @@ public: // iterator
     {
         // call in necesary 
         // create n object
-        if( n > _capacity )
+        if( n > L )
         {
             std::cout <<"Make sure your size is less than the capacity" <<std::endl;
             return; 
         }
 
-        _size = n;
+        // _size = n;
         _end = _begin + n;
         pointer iter = begin();
         while ( iter != _end )
@@ -215,12 +222,11 @@ public: // iterator
 
     void init(std::size_t n, const_reference var)
     {
-        if( n > _capacity)
+        if( n > L)
         {
             std::cout<< "Undefined Behavor of calling bigger space than capacity" <<std::endl;
             return; 
         }
-        _size = n;
         _end = _begin + n; 
 
         pointer _initial_iter = begin();
@@ -242,27 +248,21 @@ public: // iterator
         std::cout << full() << std::endl;
     }
 private: 
-    // std::allocator<Ty> _alloc;
-
-
-
     typename  std::aligned_storage<sizeof(Ty), alignof(Ty)>::type _element[L];
     pointer _begin = reinterpret_cast<Ty *>(&_element[0]);
     pointer _end   = _begin;
-    size_type _size = 0;
-    size_type _capacity = L;
 
 };
 
 template<typename Ty, std::size_t L>
-constexpr static_vector<Ty, L>::static_vector() noexcept{
+CONSTEXPR static_vector<Ty, L>::static_vector() noexcept{
     // todo no make object
     // init(L);
     std::cout<<"using [ default ] constructor and the default value of begin is "<<std::endl;
 }
 
 template<typename Ty, std::size_t L>
-constexpr static_vector<Ty, L>::static_vector(const static_vector<Ty, L>& other) 
+CONSTEXPR static_vector<Ty, L>::static_vector(const static_vector<Ty, L>& other) 
 {
     // todo copy the value of this function
     if(other.size() > L) 
@@ -270,12 +270,13 @@ constexpr static_vector<Ty, L>::static_vector(const static_vector<Ty, L>& other)
         throw std::length_error("[copy] error in your length");
     }
     init(other.size());
-    std::copy(other.begin(), other.end(), _begin);
+    // std::copy(other.begin(), other.end(), _begin);
+    copy(other);
     std::cout<<"using [ copy ] constructor "<<std::endl;
 }
 
 template<typename Ty, std::size_t L>
-constexpr static_vector<Ty, L>::static_vector(static_vector<Ty, L>&& other) noexcept
+CONSTEXPR static_vector<Ty, L>::static_vector(static_vector<Ty, L>&& other) noexcept
 {
     // todo need to alloc again?'
     
@@ -288,7 +289,7 @@ constexpr static_vector<Ty, L>::static_vector(static_vector<Ty, L>&& other) noex
 }
 
 template<typename Ty, std::size_t L>
-constexpr static_vector<Ty, L>::static_vector(std::initializer_list<value_type> list)
+CONSTEXPR static_vector<Ty, L>::static_vector(std::initializer_list<value_type> list)
 {   
     init(list.size());
     std::copy(list.begin(), list.end(), begin());
@@ -296,14 +297,14 @@ constexpr static_vector<Ty, L>::static_vector(std::initializer_list<value_type> 
 }
 
 template<typename Ty, std::size_t L>
-constexpr static_vector<Ty, L>::static_vector(std::size_t n)
+CONSTEXPR static_vector<Ty, L>::static_vector(std::size_t n)
 {
     init(n);
     std::cout<<"using [ size_t ] constructor "<<std::endl;
 }
 
 template<typename Ty, std::size_t L>
-constexpr static_vector<Ty, L>::static_vector(std::size_t n, const Ty& var)
+CONSTEXPR static_vector<Ty, L>::static_vector(std::size_t n, const Ty& var)
 {
     init(n, var);
     auto it = _end;
@@ -313,7 +314,7 @@ constexpr static_vector<Ty, L>::static_vector(std::size_t n, const Ty& var)
 
 template<typename Ty, std::size_t L>
 template<std::size_t length>
-constexpr static_vector<Ty, L>::static_vector(const value_type(&)[length])
+CONSTEXPR static_vector<Ty, L>::static_vector(const value_type(&)[length])
 {
     static_assert(length <= L , "Undefined behavior");
     init(length);
@@ -324,7 +325,7 @@ constexpr static_vector<Ty, L>::static_vector(const value_type(&)[length])
 
 template<typename Ty, std::size_t L>
 template<std::size_t length>
-constexpr static_vector<Ty, L>::static_vector(const Ty(*)[length])
+CONSTEXPR static_vector<Ty, L>::static_vector(const Ty(*)[length])
 {
     static_assert(length <= L , "Undefined behavior");
     init(length);
@@ -334,7 +335,7 @@ constexpr static_vector<Ty, L>::static_vector(const Ty(*)[length])
 
 template<typename Ty, std::size_t L>
 template<typename Iter>
-constexpr static_vector<Ty, L>::static_vector(Iter beg, Iter end)
+CONSTEXPR static_vector<Ty, L>::static_vector(Iter beg, Iter end)
 {
     std::size_t size = end - beg;
     if(size > L)
@@ -348,7 +349,7 @@ constexpr static_vector<Ty, L>::static_vector(Iter beg, Iter end)
 }
 
 template<typename Ty, std::size_t L>
-constexpr static_vector<Ty, L>& static_vector<Ty, L>::operator=(const static_vector<Ty, L>& other)
+CONSTEXPR static_vector<Ty, L>& static_vector<Ty, L>::operator=(const static_vector<Ty, L>& other)
 {
     // must copy
     init(other.size());
@@ -358,7 +359,7 @@ constexpr static_vector<Ty, L>& static_vector<Ty, L>::operator=(const static_vec
 }
 
 template<typename Ty, std::size_t L> 
-constexpr static_vector<Ty, L>& static_vector<Ty, L>::operator=(static_vector<Ty, L>&& other) noexcept
+CONSTEXPR static_vector<Ty, L>& static_vector<Ty, L>::operator=(static_vector<Ty, L>&& other) noexcept
 {
     init(other.size());
     std::move(other.begin(), other.end(), _begin);
@@ -367,7 +368,7 @@ constexpr static_vector<Ty, L>& static_vector<Ty, L>::operator=(static_vector<Ty
 }
 
 template<typename Ty, std::size_t L >
-constexpr static_vector<Ty, L>& static_vector<Ty, L>::operator=(std::initializer_list<Ty> list)
+CONSTEXPR static_vector<Ty, L>& static_vector<Ty, L>::operator=(std::initializer_list<Ty> list)
 {
     init(list.size());
     std::copy(list.begin(), list.end(), _begin);
@@ -444,17 +445,26 @@ int main() {
     // static_vector<vec, 3> vec_a;
     // static_vector<vec, 3> vec_b = vec_a;
     // std::cout<<vec_a[2].a << std::endl;
-    // iter = nullptr;
+    // // iter = nullptr;
     static_vector<vec, 3> a;
     a.show();
 
     a.emplace_back(3,'a');
+    a.emplace_back(a[0]);
     a.push_back(a[0]);
+    a.pop_back();
+    // std::cout<< a.pop_back() << std::endl;
     a.push_back(std::move(a[1]));
     a.pop_back();
     a.show();
+    static_vector<vec, 3> dd(a);
 
-    a[1].show();
+    dd[1].show();
+
+
+    static_vector<int, 5> c{1,2,3,4};
+    static_vector<int, 5> b(c);
+
     return 0;   
 }
 
